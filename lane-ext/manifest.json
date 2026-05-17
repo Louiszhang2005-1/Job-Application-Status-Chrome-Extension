@@ -1,0 +1,22 @@
+﻿{
+  "manifest_version": 3,
+  "name": "Lane",
+  "version": "1.0.0",
+  "description": "One-click job application tracker — any career page",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Lane"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["detector.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

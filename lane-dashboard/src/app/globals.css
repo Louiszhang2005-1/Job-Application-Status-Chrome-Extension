@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Lane custom colors */
+  --color-lane-bg: var(--lane-bg);
+  --color-lane-surface: var(--lane-surface);
+  --color-lane-surface-muted: var(--lane-surface-muted);
+  --color-lane-border: var(--lane-border);
+  --color-lane-text-primary: var(--lane-text-primary);
+  --color-lane-text-secondary: var(--lane-text-secondary);
+  --color-lane-text-tertiary: var(--lane-text-tertiary);
+  --color-lane-accent: var(--lane-accent);
+}
+
+:root {
+  /* Lane PRD design tokens */
+  --lane-bg: #fafaf7;
+  --lane-surface: #ffffff;
+  --lane-surface-muted: #f7f3eb;
+  --lane-border: #ebe6db;
+  --lane-text-primary: #1a1a1a;
+  --lane-text-secondary: #5a5246;
+  --lane-text-tertiary: #9a9388;
+  --lane-accent: #1f1d1a;
+
+  /* Status pill colors */
+  --status-saved-bg: #e3e8ed;
+  --status-saved-text: #3a5a78;
+  --status-applied-bg: #fde9d6;
+  --status-applied-text: #a8632a;
+  --status-phone-screen-bg: #e8e2f0;
+  --status-phone-screen-text: #6b4ea0;
+  --status-interview-bg: #e0eede;
+  --status-interview-text: #3d6b3a;
+  --status-offer-bg: #d4e8dc;
+  --status-offer-text: #1f5a3a;
+  --status-rejected-bg: #e8c9c9;
+  --status-rejected-text: #7a3a3a;
+  --status-withdrew-bg: #e0d8c9;
+  --status-withdrew-text: #7a6b48;
+  --status-ghosted-bg: #d4d4d4;
+  --status-ghosted-text: #5a5246;
+
+  /* shadcn overrides — warm theme */
+  --background: #fafaf7;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: #1f1d1a;
+  --primary-foreground: #fafaf7;
+  --secondary: #f7f3eb;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f7f3eb;
+  --muted-foreground: #5a5246;
+  --accent: #f7f3eb;
+  --accent-foreground: #1a1a1a;
+  --destructive: #7a3a3a;
+  --border: #ebe6db;
+  --input: #ebe6db;
+  --ring: #9a9388;
+  --chart-1: #a8632a;
+  --chart-2: #6b4ea0;
+  --chart-3: #3d6b3a;
+  --chart-4: #3a5a78;
+  --chart-5: #1f5a3a;
+  --radius: 0.75rem;
+  --sidebar: #fafaf7;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #1f1d1a;
+  --sidebar-primary-foreground: #fafaf7;
+  --sidebar-accent: #f7f3eb;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #ebe6db;
+  --sidebar-ring: #9a9388;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Lane utility classes */
+.lane-card {
+  background: var(--lane-surface);
+  border: 1px solid var(--lane-border);
+  border-radius: 12px;
+  transition: box-shadow 200ms ease-out, border-color 200ms ease-out;
+}
+
+.lane-card:hover {
+  box-shadow: 0 2px 8px rgba(26, 26, 26, 0.04);
+  border-color: #ddd8cd;
+}
+
+.lane-card-flat {
+  background: var(--lane-surface);
+  border: 1px solid var(--lane-border);
+  border-radius: 12px;
+}
+
+.lane-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--lane-text-tertiary);
+}
+
+.lane-stat {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--lane-text-primary);
+  line-height: 1;
+}
+
+.lane-heading {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--lane-text-primary);
+}
+
+.lane-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lane-text-primary);
+}

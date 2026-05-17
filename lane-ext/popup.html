@@ -1,0 +1,106 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 340px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+      background: #fafaf7;
+      color: #1a1a1a;
+    }
+    #wrapper { padding: 16px; }
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    #wordmark { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+    #count { font-size: 11px; color: #9a9388; }
+    .card {
+      background: #fff;
+      border: 1px solid #ebe6db;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .form-group { margin-bottom: 8px; }
+    .label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9a9388;
+      margin-bottom: 4px;
+    }
+    .input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #ebe6db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: #1a1a1a;
+      outline: none;
+      font-family: inherit;
+    }
+    .input:focus { border-color: #1f1d1a; }
+    .btn-primary {
+      width: 100%;
+      padding: 10px 0;
+      background: #1f1d1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      font-family: inherit;
+    }
+    .btn-primary:hover { background: #3a3835; }
+    .btn-secondary {
+      padding: 8px 20px;
+      background: #fff;
+      color: #1a1a1a;
+      border: 1px solid #ebe6db;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-secondary:hover { background: #f7f3eb; }
+    #toast {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 16px;
+      right: 16px;
+      background: #1f1d1a;
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <div id="header">
+      <span id="wordmark">Lane</span>
+      <span id="count"></span>
+    </div>
+    <div id="toast"></div>
+    <div id="content">
+      <div style="text-align:center;padding:40px 0;color:#9a9388;font-size:13px">Loading…</div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
