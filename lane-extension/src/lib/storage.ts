@@ -7,6 +7,7 @@ const GMAIL_SETTINGS_KEY = 'lane_gmail_settings';
 const CYCLE_SYNC_KEY = 'lane_cycle_sync_state';
 const MANUAL_OUTCOMES_KEY = 'lane_manual_outcomes';
 const CYCLE_LAYOUT_KEY = 'lane_cycle_layout';
+const TRUSTED_OUTCOMES_KEY = 'lane_trusted_outcomes';
 
 export type CycleSyncState = Record<string, { lastSyncedAt: string; lastScanned: number; lastUpdated: number }>;
 export interface CycleLayout {
@@ -214,6 +215,20 @@ export async function removeManualOutcome(id: string): Promise<void> {
   const outcomes = await getManualOutcomes();
   return new Promise((resolve) => {
     chrome.storage.local.set({ [MANUAL_OUTCOMES_KEY]: outcomes.filter((outcome) => outcome.id !== id) }, resolve);
+  });
+}
+
+export async function getTrustedOutcomes<T = Record<string, unknown>>(): Promise<T> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(TRUSTED_OUTCOMES_KEY, (result) => {
+      resolve((result[TRUSTED_OUTCOMES_KEY] ?? {}) as T);
+    });
+  });
+}
+
+export async function saveTrustedOutcomes(outcomes: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [TRUSTED_OUTCOMES_KEY]: outcomes }, resolve);
   });
 }
 

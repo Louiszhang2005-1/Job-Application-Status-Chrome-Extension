@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import type { Application, ApplicationStatus, GmailAuthDiagnostics, GmailSyncResult, GmailSyncSettings } from '../lib/types';
 import type { CycleLayout, CycleSyncState, ManualOutcome, ManualOutcomeType } from '../lib/storage';
-import { addManualOutcome, clearCycleSync, exportApplicationsToCSV, getApplications, getCycleLayout, getCycleSyncState, getGmailSettings, getManualOutcomes, importFromCSV, padCycleApplied, removeManualOutcome, saveCycleLayout, saveGmailSettings, seedKnownApplications, updateApplication } from '../lib/storage';
+import { addManualOutcome, clearCycleSync, exportApplicationsToCSV, getApplications, getCycleLayout, getCycleSyncState, getGmailSettings, getManualOutcomes, getTrustedOutcomes, importFromCSV, padCycleApplied, removeManualOutcome, saveCycleLayout, saveGmailSettings, saveTrustedOutcomes, seedKnownApplications, updateApplication } from '../lib/storage';
 import { connectGmail, disconnectGmail, getGmailAuthDiagnostics, syncGmail } from '../lib/gmail';
 import { SUMMER_2025_KNOWN, SUMMER_2026_KNOWN, WINTER_2026_KNOWN } from '../lib/winter2026Seed';
 
@@ -52,11 +52,77 @@ type TrustedOutcomeData = {
   offerCompanies: OutcomeCompany[];
   withdrawnTotal?: number;
   withdrawnCompanies?: OutcomeCompany[];
+  locked?: boolean;
 };
 
-// Outcome data is configured locally via Data Tools in the dashboard.
-// No personal application data is stored in source code.
-const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {};
+// MIGRATION BUILD — remove after reloading extension once. Data migrates to chrome.storage.local.
+const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
+  'Summer 2025': {
+    applications: 383,
+    interviewTotal: 7,
+    offerTotal: 1,
+    withdrawnTotal: 1,
+    locked: true,
+    interviewCompanies: [
+      { company: 'ABB', count: 1 },
+      { company: 'ArcelorMittal Produits Longs Canada', count: 1 },
+      { company: 'Lelièvre', count: 1 },
+      { company: 'Lelièvre et Lemoignan Ltée', count: 1 },
+      { company: 'Pratt & Whitney', count: 1 },
+      { company: 'Vantage Canada Marketing', count: 1 },
+      { company: 'Ville de Montréal', count: 1 },
+    ],
+    offerCompanies: [
+      { company: 'Ville de Montréal', count: 1 },
+    ],
+    withdrawnCompanies: [
+      { company: 'Collineo', count: 1 },
+    ],
+  },
+  'Winter 2026': {
+    applications: 351,
+    interviewTotal: 18,
+    offerTotal: 4,
+    withdrawnTotal: 9,
+    locked: true,
+    interviewCompanies: [
+      { company: 'Airbus', count: 4 },
+      { company: 'Cascades', count: 1 },
+      { company: 'Evident Canada (Olympus NDT)', count: 1 },
+      { company: 'Lockheed Martin', count: 1 },
+      { company: 'Pratt & Whitney', count: 2 },
+    ],
+    offerCompanies: [
+      { company: 'Airbus', count: 1 },
+      { company: 'Cascades', count: 1 },
+      { company: 'Lockheed Martin', count: 1 },
+      { company: 'Pratt & Whitney', count: 1 },
+    ],
+    withdrawnCompanies: [
+      { company: 'Airbus', count: 5 },
+      { company: 'Bombardier', count: 1 },
+      { company: 'De Havilland', count: 1 },
+      { company: 'GF Vernova', count: 1 },
+      { company: 'Metaltech-Omega', count: 1 },
+    ],
+  },
+  'Summer 2026': {
+    applications: 312,
+    interviewTotal: 4,
+    offerTotal: 1,
+    withdrawnTotal: 0,
+    locked: true,
+    interviewCompanies: [
+      { company: 'Hylight (YC S23)', count: 1 },
+      { company: 'Reditus Space (YC W25)', count: 1 },
+      { company: 'Tesla', count: 2 },
+    ],
+    offerCompanies: [
+      { company: 'Tesla', count: 1 },
+    ],
+    withdrawnCompanies: [],
+  },
+};
 
 function injectStyles() {
   if (document.getElementById('lane-dashboard-styles')) return;
@@ -185,9 +251,9 @@ function mergeManualOutcomes(base: TrustedOutcomeData, cycle: string, manualOutc
   ];
 
   return {
-    interviewTotal: interviewCompanies.length,
-    offerTotal: offerCompanies.length,
-    withdrawnTotal: withdrawnCompanies.length,
+    interviewTotal: base.locked ? base.interviewTotal : interviewCompanies.length,
+    offerTotal: base.locked ? base.offerTotal : offerCompanies.length,
+    withdrawnTotal: base.locked ? (base.withdrawnTotal ?? 0) : withdrawnCompanies.length,
     applications: base.applications,
     interviewCompanies: toCompanyCounts(interviewCompanies),
     offerCompanies: toCompanyCounts(offerCompanies),
@@ -195,8 +261,8 @@ function mergeManualOutcomes(base: TrustedOutcomeData, cycle: string, manualOutc
   };
 }
 
-function trustedOutcomeData(cycle: string, apps: Application[], manualOutcomes: ManualOutcome[]): TrustedOutcomeData {
-  const trusted = TRUSTED_CYCLE_OUTCOMES[cycle];
+function trustedOutcomeData(cycle: string, apps: Application[], manualOutcomes: ManualOutcome[], outcomes: Record<string, TrustedOutcomeData> = TRUSTED_CYCLE_OUTCOMES): TrustedOutcomeData {
+  const trusted = outcomes[cycle];
   if (trusted) return mergeManualOutcomes(trusted, cycle, manualOutcomes);
 
   const interviewCompanies = apps
@@ -219,12 +285,19 @@ function trustedOutcomeData(cycle: string, apps: Application[], manualOutcomes: 
   }, cycle, manualOutcomes);
 }
 
-function outcomeDataForView(cycle: string, apps: Application[], manualOutcomes: ManualOutcome[]): TrustedOutcomeData {
-  if (cycle !== 'all') return trustedOutcomeData(cycle, apps, manualOutcomes);
+function outcomeDataForView(cycle: string, apps: Application[], manualOutcomes: ManualOutcome[], outcomes: Record<string, TrustedOutcomeData> = TRUSTED_CYCLE_OUTCOMES): TrustedOutcomeData {
+  if (cycle !== 'all') return trustedOutcomeData(cycle, apps, manualOutcomes, outcomes);
 
   const cycles = new Set<string>();
   apps.forEach((app) => cycles.add(app.recruitment_cycle ?? 'Unassigned'));
-  manualOutcomes.forEach((outcome) => cycles.add(outcome.cycle));
+  Object.keys(outcomes).forEach((key) => cycles.add(key));
+  // Only add manual-outcome cycles that have trusted data or actual apps — prevents phantom cycles
+  // from manual entries with slightly different cycle names inflating totals.
+  manualOutcomes.forEach((outcome) => {
+    if (outcomes[outcome.cycle] || apps.some((a) => (a.recruitment_cycle ?? 'Unassigned') === outcome.cycle)) {
+      cycles.add(outcome.cycle);
+    }
+  });
 
   let interviewTotal = 0;
   let offerTotal = 0;
@@ -235,7 +308,7 @@ function outcomeDataForView(cycle: string, apps: Application[], manualOutcomes: 
   const withdrawnCompanies: string[] = [];
   cycles.forEach((entryCycle) => {
     const cycleApps = apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === entryCycle);
-    const data = trustedOutcomeData(entryCycle, cycleApps, manualOutcomes);
+    const data = trustedOutcomeData(entryCycle, cycleApps, manualOutcomes, outcomes);
     interviewTotal += data.interviewTotal;
     offerTotal += data.offerTotal;
     withdrawnTotal += data.withdrawnTotal ?? 0;
@@ -464,7 +537,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
     { label: 'Applied', value: appliedTotal, color: '#f59e0b' },
     { label: 'Rejected', value: rejectedTotal, color: '#e11d48' },
     { label: 'Withdrawn interviews', value: withdrawnTotal, color: '#78716c' },
-    { label: 'Interviews', value: interviewTotal + (withdrawnTotal ?? 0), color: '#2563eb' },
+    { label: 'Interviews', value: interviewTotal, color: '#2563eb' },
     { label: 'Offers', value: offerTotal, color: '#16a34a' },
   ];
 
@@ -501,7 +574,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
           <h2 style={{ margin: '6px 0 0', fontSize: 20, letterSpacing: '-.03em' }}>Cycle outcomes</h2>
         </div>
         <div style={{ fontSize: 12, color: '#64748b', fontWeight: 800 }}>
-          {displayedInterviews} interview{displayedInterviews !== 1 ? 's' : ''} - {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
+          {interviewTotal} interview{interviewTotal !== 1 ? 's' : ''} - {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(100px, 1fr))', gap: 10, marginBottom: 18 }}>
@@ -611,7 +684,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
           <h2 style={{ margin: '6px 0 0', fontSize: 20, letterSpacing: '-.03em' }}>Application Sankey</h2>
         </div>
         <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-          {displayedInterviews} interview{displayedInterviews !== 1 ? 's' : ''} · {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
+          {interviewTotal} interview{interviewTotal !== 1 ? 's' : ''} · {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
         </div>
       </div>
       <svg width="100%" viewBox={`0 0 ${VW} ${SVG_H}`} style={{ display: 'block', overflow: 'visible' }}>
@@ -686,7 +759,7 @@ function getOutcomeSummary(apps: Application[], trustedOutcomes: TrustedOutcomeD
   const offers = trustedOutcomes.offerTotal;
   const withdrawn = trustedOutcomes.withdrawnTotal ?? apps.filter((app) => app.status === 'withdrew').length;
   const pending = Math.max(applications - rejected - interviews - withdrawn, 0);
-  const noOffer = Math.max(interviews - offers, 0);
+  const noOffer = Math.max(interviews - offers - withdrawn, 0);
   const interviews_with_withdrawn = interviews + (withdrawn ?? 0);
   return { applications, pending, rejected, interviews, offers, noOffer, withdrawn, interviews_with_withdrawn };
 }
@@ -708,7 +781,7 @@ function OutcomeDashboardCard({
 }) {
   const summary = getOutcomeSummary(apps, trustedOutcomes);
   const displayedInterviews = summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0));
-  const responseProgress = pct(displayedInterviews, Math.max(summary.applications, 1));
+  const responseProgress = pct(summary.interviews, Math.max(summary.applications, 1));
   const offerYield = pct(summary.offers, Math.max(summary.interviews, 1));
   const nextFocus = summary.applications === 0
     ? { value: 'Ready to sync', detail: 'Create Gmail folders or import rows to start this cycle.' }
@@ -724,7 +797,7 @@ function OutcomeDashboardCard({
     { label: 'Ghosted', value: summary.pending, color: '#f59e0b', soft: '#fff7ed' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48', soft: '#ffe4e6' },
     { label: 'Withdrawn interviews', value: summary.withdrawn, color: '#78716c', soft: '#f5f5f4' },
-    { label: 'Interviews', value: displayedInterviews, color: '#2563eb', soft: '#dbeafe' },
+    { label: 'Interviews', value: summary.interviews, color: '#2563eb', soft: '#dbeafe' },
     { label: 'Offers', value: summary.offers, color: '#16a34a', soft: '#dcfce7' },
   ];
 
@@ -737,7 +810,7 @@ function OutcomeDashboardCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', fontSize: 12, fontWeight: 800 }}>
           <span style={{ borderRadius: 999, padding: '6px 9px', background: '#eef6fb', color: '#2563eb', border: '1px solid #dbeafe' }}>{cycleName}</span>
-          <span style={{ color: '#64748b' }}>{displayedInterviews} interviews - {summary.offers} offers</span>
+          <span style={{ color: '#64748b' }}>{summary.interviews} interviews - {summary.offers} offers</span>
         </div>
       </div>
 
@@ -753,7 +826,7 @@ function OutcomeDashboardCard({
             </div>
           </div>
           {[
-            { label: 'Interview rate', value: `${responseProgress}%`, detail: `${displayedInterviews} of ${summary.applications} reached interview`, color: '#2563eb' },
+            { label: 'Interview rate', value: `${responseProgress}%`, detail: `${summary.interviews} of ${summary.applications} reached interview`, color: '#2563eb' },
             { label: 'Offer rate', value: `${offerYield}%`, detail: `${summary.offers} of ${summary.interviews} interviews converted`, color: '#16a34a' },
             { label: 'No offer', value: summary.noOffer, detail: 'Interview paths without an offer', color: '#64748b' },
           ].map((item) => (
@@ -932,7 +1005,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
     { label: 'Ghosted', value: summary.pending, color: '#f59e0b' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48' },
     { label: 'Withdrawn interviews', value: summary.withdrawn ?? 0, color: '#78716c' },
-    { label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
+    { label: 'Interviews', value: summary.interviews, color: '#2563eb' },
     { label: 'Offers', value: summary.offers, color: '#16a34a' },
     { label: 'No Offer', value: summary.noOffer, color: '#94a3b8' },
   ];
@@ -955,7 +1028,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', fontSize: 12, fontWeight: 800 }}>
           <span style={{ borderRadius: 999, padding: '6px 9px', background: '#eef6fb', color: '#2563eb', border: '1px solid #dbeafe' }}>{cycleName}</span>
-          <span style={{ color: '#64748b' }}>{summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0))} interviews - {summary.offers} offers</span>
+          <span style={{ color: '#64748b' }}>{summary.interviews} interviews - {summary.offers} offers</span>
         </div>
       </div>
 
@@ -1261,14 +1334,16 @@ export default function App() {
   const [manualCompany, setManualCompany] = useState('');
   const [manualCycle, setManualCycle] = useState('Summer 2026');
   const [manualType, setManualType] = useState<ManualOutcomeType>('interview');
+  const [storedOutcomes, setStoredOutcomes] = useState<Record<string, TrustedOutcomeData>>({});
 
   async function load() {
-    const [loadedApps, gmailSettings, syncState, outcomes, layout] = await Promise.all([
+    const [loadedApps, gmailSettings, syncState, outcomes, layout, stored] = await Promise.all([
       getApplications(),
       getGmailSettings(),
       getCycleSyncState(),
       getManualOutcomes(),
       getCycleLayout(),
+      getTrustedOutcomes<Record<string, TrustedOutcomeData>>(),
     ]);
     setApps(loadedApps);
     setSettings(gmailSettings);
@@ -1276,6 +1351,14 @@ export default function App() {
     setManualOutcomes(outcomes);
     setCycleLayout(layout);
     if (!manualCycle && gmailSettings.activeCycle.trim()) setManualCycle(gmailSettings.activeCycle.trim());
+    const sourceKeys = Object.keys(TRUSTED_CYCLE_OUTCOMES);
+    if (sourceKeys.length > 0) {
+      // Migration mode: source has data → always overwrite storage so fixes apply immediately.
+      await saveTrustedOutcomes(TRUSTED_CYCLE_OUTCOMES as Record<string, unknown>);
+      setStoredOutcomes(TRUSTED_CYCLE_OUTCOMES);
+    } else {
+      setStoredOutcomes(stored);
+    }
   }
 
   useEffect(() => {
@@ -1296,7 +1379,7 @@ export default function App() {
       ? visibleBaseApps
       : apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === cycleFilter);
     const get = (status: ApplicationStatus) => scopedApps.filter((app) => app.status === status).length;
-    const outcomes = outcomeDataForView(cycleFilter, scopedApps, visibleManualOutcomes);
+    const outcomes = outcomeDataForView(cycleFilter, scopedApps, visibleManualOutcomes, storedOutcomes);
     const submitted = scopedApps.filter((app) => app.status !== 'saved').length;
     const screened = outcomes.interviewTotal;
     const interviewed = outcomes.interviewTotal;
@@ -1311,17 +1394,18 @@ export default function App() {
       rejected: get('rejected'),
       ghosted: get('ghosted'),
     };
-  }, [apps, cycleFilter, visibleBaseApps, visibleManualOutcomes]);
+  }, [apps, cycleFilter, visibleBaseApps, visibleManualOutcomes, storedOutcomes]);
 
   const cycleOptions = useMemo(() => {
     const cycles = [
       ...cycleLayout.order,
+      ...Object.keys(storedOutcomes),
       ...apps.map((app) => app.recruitment_cycle ?? 'Unassigned'),
       ...manualOutcomes.map((outcome) => outcome.cycle),
       settings.activeCycle.trim(),
     ].filter((cycle) => cycle && !hiddenCycleKeys.has(cycleKey(cycle)));
     return applyCycleOrder(cycles, cycleLayout.order);
-  }, [apps, cycleLayout.order, hiddenCycleKeys, manualOutcomes, settings.activeCycle]);
+  }, [apps, cycleLayout.order, hiddenCycleKeys, manualOutcomes, settings.activeCycle, storedOutcomes]);
 
   const cycleApps = useMemo(() => {
     return cycleFilter === 'all'
@@ -1338,8 +1422,8 @@ export default function App() {
   }, [cycleApps, filter, search]);
 
   const trustedOutcomes = useMemo(() => (
-    outcomeDataForView(cycleFilter, cycleApps, visibleManualOutcomes)
-  ), [cycleApps, cycleFilter, visibleManualOutcomes]);
+    outcomeDataForView(cycleFilter, cycleApps, visibleManualOutcomes, storedOutcomes)
+  ), [cycleApps, cycleFilter, visibleManualOutcomes, storedOutcomes]);
 
   const pipelineData = PIPELINE.map((status) => ({
     name: STATUS_META[status].label,
@@ -1387,6 +1471,15 @@ export default function App() {
     await load();
   }
 
+  async function padLockedCycles(cycles: string[]) {
+    for (const c of cycles) {
+      const trusted = TRUSTED_CYCLE_OUTCOMES[c];
+      if (trusted?.locked && trusted.applications) {
+        await padCycleApplied(c, trusted.applications);
+      }
+    }
+  }
+
   async function handleSyncCycle(cycle = settings.activeCycle) {
     const activeCycle = cleanCycleName(cycle || settings.activeCycle);
     if (!activeCycle) return;
@@ -1397,6 +1490,7 @@ export default function App() {
     const result = await syncGmail(normalizedSettings);
     setSyncResult(result);
     setCycleFilter(activeCycle);
+    await padLockedCycles([activeCycle]);
     await load();
     setSyncing(false);
   }
@@ -1416,6 +1510,10 @@ export default function App() {
     await saveGmailSettings(normalizedSettings);
     const result = await syncGmail(normalizedSettings, { resetCycles: cycle === '__all__' ? cycleSyncState ? Object.keys(cycleSyncState) : [] : [cycle] });
     setSyncResult(result);
+    const cyclesToPad = cycle === '__all__'
+      ? Object.keys(TRUSTED_CYCLE_OUTCOMES)
+      : [cleanCycleName(cycle)];
+    await padLockedCycles(cyclesToPad);
     if (cycle !== '__all__') setCycleFilter(cycle);
     await load();
     setSyncing(false);
@@ -1595,7 +1693,7 @@ export default function App() {
               {['all', ...cycleOptions].map((cycle) => {
                 const active = cycleFilter === cycle;
                 if (cycle === 'all') {
-                  const allData = outcomeDataForView('all', visibleBaseApps, visibleManualOutcomes);
+                  const allData = outcomeDataForView('all', visibleBaseApps, visibleManualOutcomes, storedOutcomes);
                   const count = allData.applications ?? visibleBaseApps.length;
                   return (
                     <button
@@ -1621,7 +1719,7 @@ export default function App() {
                 }
 
                 const cycleAppsList = apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === cycle);
-                const trusted = trustedOutcomeData(cycle, cycleAppsList, visibleManualOutcomes);
+                const trusted = trustedOutcomeData(cycle, cycleAppsList, visibleManualOutcomes, storedOutcomes);
                 const count = trusted.applications ?? cycleAppsList.length;
 
                 return (

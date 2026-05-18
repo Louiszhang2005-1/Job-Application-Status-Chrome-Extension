@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "build:web": "vite build --config vite.web.config.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
