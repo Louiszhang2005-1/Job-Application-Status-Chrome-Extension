@@ -54,88 +54,9 @@ type TrustedOutcomeData = {
   withdrawnCompanies?: OutcomeCompany[];
 };
 
-const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
-  'Summer 2025': {
-    applications: 383,
-    interviewTotal: 6,
-    offerTotal: 1,
-    interviewCompanies: toCompanyCounts([
-      'Ville de Montréal',
-      'ABB',
-      'ArcelorMittal Produits Longs Canada',
-      'Lelièvre, Lelièvre et Lemoignan Ltée',
-      'Vantage Canada Marketing',
-      'Pratt & Whitney',
-    ]),
-    offerCompanies: toCompanyCounts(['Ville de Montréal']),
-    withdrawnTotal: 1,
-    withdrawnCompanies: toCompanyCounts(['Collineo']),
-  },
-  'Summer 2026': {
-    interviewTotal: 4,
-    offerTotal: 1,
-    interviewCompanies: toCompanyCounts([
-      'Tesla',
-      'Tesla',
-      'Hylight (YC S23)',
-      'Reditus Space (YC W25)',
-    ]),
-    offerCompanies: toCompanyCounts(['Tesla']),
-  },
-  'Winter 2026': {
-    // User attended 9 interviews (9 others were withdrawn by user).
-    interviewTotal: 9,
-    offerTotal: 4,
-    // Only include the companies for the interviews actually attended (first 9 entries).
-    interviewCompanies: toCompanyCounts([
-      'Pratt & Whitney',
-      'Pratt & Whitney',
-      'Cascades',
-      'Airbus',
-      'Airbus',
-      'Lockheed Martin',
-      'Airbus',
-      'Airbus',
-      'Evident Canada (Olympus NDT)',
-    ]),
-    offerCompanies: toCompanyCounts([
-      'Pratt & Whitney',
-      'Cascades',
-      'Lockheed Martin',
-      'Airbus',
-    ]),
-    // Withdrawn interviews (user withdrew / declined interview requests)
-    withdrawnTotal: 9,
-    withdrawnCompanies: toCompanyCounts([
-      'Airbus',
-      'Airbus',
-      'Airbus',
-      'Airbus',
-      'Airbus',
-      'Bombardier',
-      'Metaltech-Omega',
-      'De Havilland',
-      'GF Vernova',
-    ]),
-  },
-};
-
-TRUSTED_CYCLE_OUTCOMES['Summer 2025'] = {
-  applications: 383,
-  interviewTotal: 6,
-  offerTotal: 1,
-  interviewCompanies: toCompanyCounts([
-    'Ville de Montréal',
-    'ABB',
-    'ArcelorMittal Produits Longs Canada',
-    'Lelièvre, Lelièvre et Lemoignan Ltée',
-    'Vantage Canada Marketing',
-    'Pratt & Whitney',
-  ]),
-  offerCompanies: toCompanyCounts(['Ville de Montréal']),
-  withdrawnTotal: 1,
-  withdrawnCompanies: toCompanyCounts(['Collineo']),
-};
+// Outcome data is configured locally via Data Tools in the dashboard.
+// No personal application data is stored in source code.
+const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {};
 
 function injectStyles() {
   if (document.getElementById('lane-dashboard-styles')) return;
