@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+
+lane-extension/.env
+lane-extension/.env.*
+!lane-extension/.env.example
+
+lane-extension/dist/
+node_modules/

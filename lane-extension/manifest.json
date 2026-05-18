@@ -3,7 +3,11 @@
   "name": "Lane",
   "version": "1.0.0",
   "description": "One-click job application tracker that works on any career page",
-  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+  "permissions": ["activeTab", "storage", "scripting", "tabs", "identity", "identity.email"],
+  "oauth2": {
+    "client_id": "set-via-env.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
+  },
   "options_page": "src/dashboard/index.html",
   "host_permissions": ["<all_urls>"],
   "action": {

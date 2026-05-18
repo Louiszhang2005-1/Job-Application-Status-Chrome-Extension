@@ -24,6 +24,31 @@ Then load the extension in Chrome:
 - If a job is detected, review the pre-filled details and click **Save to Lane**
 - If no job is detected, click **+ Add manually** to fill in the details yourself
 - On pages you have already saved, update the application status from the dropdown
+- Open the dashboard to sync Gmail replies, review analytics, and update statuses
+
+## Gmail sync setup
+
+Lane can scan recent Gmail messages for interview and rejection language, match those messages to tracked companies, update the application status, and apply Gmail labels such as `Lane/Interview` and `Lane/Rejected`.
+
+Before the **Connect Gmail** button can work, replace the placeholder OAuth client ID in `manifest.json`:
+
+```json
+"oauth2": {
+  "client_id": "YOUR_CHROME_EXTENSION_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+  "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
+}
+```
+
+High-level setup:
+
+1. Create a Google Cloud project and enable the Gmail API.
+2. Configure the OAuth consent screen.
+3. Create an OAuth client for a Chrome extension.
+4. Use the extension ID from `chrome://extensions` for that OAuth client.
+5. Paste the generated client ID into `manifest.json`.
+6. Run `npm run build`, then reload the unpacked `dist/` extension.
+
+The dashboard uses Gmail labels as folders. The default label prefix is `Lane`, but you can change it in the dashboard before syncing.
 
 ## Adding icons (optional)
 
@@ -53,7 +78,7 @@ Chrome will use a default puzzle-piece icon until you add real icons. To use a c
 
 ## Data
 
-All application data is stored locally in `chrome.storage.local`. Nothing is sent to any server.
+All application data and Gmail sync settings are stored locally in `chrome.storage.local`. Nothing is sent to any server. Gmail messages are only read through the Gmail API after you approve the OAuth consent prompt.
 
 ## Supported platforms (Tier 1 — auto-detected)
 
