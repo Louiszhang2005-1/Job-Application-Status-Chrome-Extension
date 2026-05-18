@@ -521,16 +521,18 @@ export function getCompanyForEmail(emailMatch: EmailMatch): Application | undefi
 // Stats
 export function getStats() {
   const applied = fakeApplications.filter((a) => a.status !== "saved");
-  const active = fakeApplications.filter((a) =>
-    ["applied", "phone_screen", "interview"].includes(a.status)
-  );
-  const withResponse = fakeApplications.filter(
-    (a) => a.status !== "applied" && a.status !== "ghosted" && a.status !== "saved"
+  const ghosted = fakeApplications.filter((a) => a.status === "ghosted");
+  const interviewed = fakeApplications.filter((a) =>
+    ["interview", "offer"].includes(a.status)
   );
   const offers = fakeApplications.filter((a) => a.status === "offer");
 
-  const responseRate = applied.length > 0
-    ? Math.round((withResponse.length / applied.length) * 100)
+  const interviewRate = applied.length > 0
+    ? Math.round((interviewed.length / applied.length) * 100)
+    : 0;
+
+  const offerRate = applied.length > 0
+    ? Math.round((offers.length / applied.length) * 100)
     : 0;
 
   const appsWithResponse = fakeApplications.filter(
@@ -538,21 +540,21 @@ export function getStats() {
   );
   const avgDays = appsWithResponse.length > 0
     ? (
-        appsWithResponse.reduce((sum, a) => {
-          const diff =
-            new Date(a.response_received_at!).getTime() -
-            new Date(a.applied_at!).getTime();
-          return sum + diff / (1000 * 60 * 60 * 24);
-        }, 0) / appsWithResponse.length
-      ).toFixed(1)
+      appsWithResponse.reduce((sum, a) => {
+        const diff =
+          new Date(a.response_received_at!).getTime() -
+          new Date(a.applied_at!).getTime();
+        return sum + diff / (1000 * 60 * 60 * 24);
+      }, 0) / appsWithResponse.length
+    ).toFixed(1)
     : "—";
 
   return {
     totalApplied: applied.length,
-    activePipeline: active.length,
-    responseRate,
+    ghosted: ghosted.length,
+    interviewRate,
     avgDaysToResponse: avgDays,
-    offers: offers.length,
+    offerRate,
   };
 }
 

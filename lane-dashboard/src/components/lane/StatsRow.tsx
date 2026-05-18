@@ -1,7 +1,7 @@
 "use client";
 
 import { getStats } from "@/lib/fake-data";
-import { Briefcase, TrendingUp, Percent, Clock, Trophy, ArrowUp, ArrowDown } from "lucide-react";
+import { Briefcase, Ghost, BarChart2, Clock, Trophy, ArrowUp, ArrowDown } from "lucide-react";
 
 // Trend data (fake — simulates change from last week)
 const trends = [
@@ -14,8 +14,8 @@ const trends = [
 
 const iconConfigs = [
   { icon: Briefcase, bg: "var(--status-applied-bg)", color: "var(--status-applied-text)" },
-  { icon: TrendingUp, bg: "var(--status-phone-screen-bg)", color: "var(--status-phone-screen-text)" },
-  { icon: Percent, bg: "var(--status-interview-bg)", color: "var(--status-interview-text)" },
+  { icon: Ghost, bg: "var(--status-ghosted-bg)", color: "var(--status-ghosted-text)" },
+  { icon: BarChart2, bg: "var(--status-interview-bg)", color: "var(--status-interview-text)" },
   { icon: Clock, bg: "var(--status-saved-bg)", color: "var(--status-saved-text)" },
   { icon: Trophy, bg: "var(--status-offer-bg)", color: "var(--status-offer-text)" },
 ];
@@ -25,10 +25,10 @@ export function StatsRow() {
 
   const items = [
     { label: "Total Applied", value: stats.totalApplied.toString() },
-    { label: "Active Pipeline", value: stats.activePipeline.toString() },
-    { label: "Response Rate", value: `${stats.responseRate}%` },
+    { label: "Ghosted", value: stats.ghosted.toString() },
+    { label: "Interview Rate", value: `${stats.interviewRate}%` },
     { label: "Avg Response", value: typeof stats.avgDaysToResponse === "string" ? stats.avgDaysToResponse : `${stats.avgDaysToResponse}d` },
-    { label: "Offers", value: stats.offers.toString() },
+    { label: "Offer Rate", value: `${stats.offerRate}%` },
   ];
 
   return (
