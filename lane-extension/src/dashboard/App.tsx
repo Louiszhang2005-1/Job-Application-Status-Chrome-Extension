@@ -45,14 +45,18 @@ const SEASON_ORDER: Record<string, number> = { Fall: 4, Autumn: 4, Summer: 3, Sp
 
 type OutcomeCompany = { company: string; count: number };
 type TrustedOutcomeData = {
+  applications?: number;
   interviewTotal: number;
   offerTotal: number;
   interviewCompanies: OutcomeCompany[];
   offerCompanies: OutcomeCompany[];
+  withdrawnTotal?: number;
+  withdrawnCompanies?: OutcomeCompany[];
 };
 
 const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
   'Summer 2025': {
+    applications: 383,
     interviewTotal: 7,
     offerTotal: 1,
     interviewCompanies: toCompanyCounts([
@@ -78,8 +82,10 @@ const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
     offerCompanies: toCompanyCounts(['Tesla']),
   },
   'Winter 2026': {
-    interviewTotal: 18,
+    // User attended 9 interviews (9 others were withdrawn by user).
+    interviewTotal: 9,
     offerTotal: 4,
+    // Only include the companies for the interviews actually attended (first 9 entries).
     interviewCompanies: toCompanyCounts([
       'Pratt & Whitney',
       'Pratt & Whitney',
@@ -90,15 +96,6 @@ const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
       'Airbus',
       'Airbus',
       'Evident Canada (Olympus NDT)',
-      'Airbus',
-      'Bombardier',
-      'Airbus',
-      'Metaltech-Omega',
-      'Airbus',
-      'Airbus',
-      'Airbus',
-      'De Havilland',
-      'GF Vernova',
     ]),
     offerCompanies: toCompanyCounts([
       'Pratt & Whitney',
@@ -106,10 +103,24 @@ const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
       'Lockheed Martin',
       'Airbus',
     ]),
+    // Withdrawn interviews (user withdrew / declined interview requests)
+    withdrawnTotal: 9,
+    withdrawnCompanies: toCompanyCounts([
+      'Airbus',
+      'Airbus',
+      'Airbus',
+      'Airbus',
+      'Airbus',
+      'Bombardier',
+      'Metaltech-Omega',
+      'De Havilland',
+      'GF Vernova',
+    ]),
   },
 };
 
 TRUSTED_CYCLE_OUTCOMES['Summer 2025'] = {
+  applications: 383,
   interviewTotal: 7,
   offerTotal: 1,
   interviewCompanies: toCompanyCounts([
@@ -230,20 +241,34 @@ function toCompanyCounts(companies: string[]): OutcomeCompany[] {
 function mergeManualOutcomes(base: TrustedOutcomeData, cycle: string, manualOutcomes: ManualOutcome[]): TrustedOutcomeData {
   const cycleManual = manualOutcomes.filter((outcome) => outcome.cycle === cycle);
   if (cycleManual.length === 0) return base;
+  const baseInterview = base.interviewCompanies ?? [];
+  const baseOffer = base.offerCompanies ?? [];
+  const baseWithdrawn = base.withdrawnCompanies ?? [];
+
   const interviewCompanies = [
-    ...base.interviewCompanies.flatMap((item) => Array.from({ length: item.count }, () => item.company)),
+    ...baseInterview.flatMap((item) => Array.from({ length: item.count }, () => item.company)),
     ...cycleManual.filter((outcome) => outcome.type === 'interview').map((outcome) => outcome.company),
     ...cycleManual.filter((outcome) => outcome.type === 'offer').map((outcome) => outcome.company),
   ];
+
   const offerCompanies = [
-    ...base.offerCompanies.flatMap((item) => Array.from({ length: item.count }, () => item.company)),
+    ...baseOffer.flatMap((item) => Array.from({ length: item.count }, () => item.company)),
     ...cycleManual.filter((outcome) => outcome.type === 'offer').map((outcome) => outcome.company),
   ];
+
+  const withdrawnCompanies = [
+    ...baseWithdrawn.flatMap((item) => Array.from({ length: item.count }, () => item.company)),
+    ...cycleManual.filter((outcome) => (outcome as any).type === 'withdrew').map((outcome) => outcome.company),
+  ];
+
   return {
     interviewTotal: interviewCompanies.length,
     offerTotal: offerCompanies.length,
+    withdrawnTotal: withdrawnCompanies.length,
+    applications: base.applications,
     interviewCompanies: toCompanyCounts(interviewCompanies),
     offerCompanies: toCompanyCounts(offerCompanies),
+    withdrawnCompanies: toCompanyCounts(withdrawnCompanies),
   };
 }
 
@@ -257,11 +282,17 @@ function trustedOutcomeData(cycle: string, apps: Application[], manualOutcomes: 
   const offerCompanies = apps
     .filter((app) => app.status === 'offer')
     .map((app) => app.company);
+  const withdrawnCompanies = apps
+    .filter((app) => app.status === 'withdrew')
+    .map((app) => app.company);
   return mergeManualOutcomes({
     interviewTotal: interviewCompanies.length,
     offerTotal: offerCompanies.length,
+    withdrawnTotal: withdrawnCompanies.length,
+    applications: apps.length,
     interviewCompanies: toCompanyCounts(interviewCompanies),
     offerCompanies: toCompanyCounts(offerCompanies),
+    withdrawnCompanies: toCompanyCounts(withdrawnCompanies),
   }, cycle, manualOutcomes);
 }
 
@@ -274,22 +305,31 @@ function outcomeDataForView(cycle: string, apps: Application[], manualOutcomes: 
 
   let interviewTotal = 0;
   let offerTotal = 0;
+  let withdrawnTotal = 0;
+  let applications = 0;
   const interviewCompanies: string[] = [];
   const offerCompanies: string[] = [];
+  const withdrawnCompanies: string[] = [];
   cycles.forEach((entryCycle) => {
     const cycleApps = apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === entryCycle);
     const data = trustedOutcomeData(entryCycle, cycleApps, manualOutcomes);
     interviewTotal += data.interviewTotal;
     offerTotal += data.offerTotal;
+    withdrawnTotal += data.withdrawnTotal ?? 0;
+    applications += data.applications ?? cycleApps.length;
     data.interviewCompanies.forEach((item) => interviewCompanies.push(...Array.from({ length: item.count }, () => item.company)));
     data.offerCompanies.forEach((item) => offerCompanies.push(...Array.from({ length: item.count }, () => item.company)));
+    (data.withdrawnCompanies ?? []).forEach((item) => withdrawnCompanies.push(...Array.from({ length: item.count }, () => item.company)));
   });
 
   return {
+    applications,
     interviewTotal,
     offerTotal,
+    withdrawnTotal,
     interviewCompanies: toCompanyCounts(interviewCompanies),
     offerCompanies: toCompanyCounts(offerCompanies),
+    withdrawnCompanies: toCompanyCounts(withdrawnCompanies),
   };
 }
 
@@ -489,14 +529,19 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
 
   const interviewTotal = trustedOutcomes.interviewTotal;
   const offerTotal = trustedOutcomes.offerTotal;
+  const withdrawnTotal = trustedOutcomes.withdrawnTotal ?? submitted.filter((a) => a.status === 'withdrew').length;
   const appliedTotal = submitted.filter((a) => a.status === 'applied').length;
   const rejectedTotal = submitted.filter((a) => a.status === 'rejected').length;
 
+  const totalCount = trustedOutcomes.applications ?? submitted.length;
+  const displayedInterviews = interviewTotal + (withdrawnTotal ?? 0);
+
   const summaryCards = [
-    { label: 'Applications', value: submitted.length, color: '#1e3a8a' },
+    { label: 'Applications', value: totalCount, color: '#1e3a8a' },
     { label: 'Applied', value: appliedTotal, color: '#f59e0b' },
     { label: 'Rejected', value: rejectedTotal, color: '#e11d48' },
-    { label: 'Interviews', value: interviewTotal, color: '#2563eb' },
+    { label: 'Withdrawn interviews', value: withdrawnTotal, color: '#78716c' },
+    { label: 'Interviews', value: interviewTotal + (withdrawnTotal ?? 0), color: '#2563eb' },
     { label: 'Offers', value: offerTotal, color: '#16a34a' },
   ];
 
@@ -533,7 +578,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
           <h2 style={{ margin: '6px 0 0', fontSize: 20, letterSpacing: '-.03em' }}>Cycle outcomes</h2>
         </div>
         <div style={{ fontSize: 12, color: '#64748b', fontWeight: 800 }}>
-          {interviewTotal} interview{interviewTotal !== 1 ? 's' : ''} - {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
+          {displayedInterviews} interview{displayedInterviews !== 1 ? 's' : ''} - {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(100px, 1fr))', gap: 10, marginBottom: 18 }}>
@@ -554,7 +599,8 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
 
   const rawBuckets: Array<{ id: string; label: string; color: string; count: number }> = [
     { id: 'rejected', label: 'Rejected', color: '#e11d48', count: submitted.filter((a) => a.status === 'rejected').length },
-    { id: 'interview', label: 'Interview', color: '#2563eb', count: interviewTotal },
+    // combine withdrawn into the interview node so withdrawn visually branches off from interviews
+    { id: 'interview', label: 'Interview', color: '#2563eb', count: interviewTotal + (withdrawnTotal ?? 0) },
     { id: 'offer', label: 'Offer', color: '#16a34a', count: offerTotal },
     { id: 'applied', label: 'Applied', color: '#f59e0b', count: submitted.filter((a) => a.status === 'applied').length },
   ].filter((b) => b.count > 0);
@@ -565,12 +611,16 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
   const offerItems = trustedOutcomes.offerCompanies
     .map(({ company, count }) => ({ label: company, count }))
     .map((n) => ({ ...n, color: '#16a34a', sourceId: 'offer' }));
-  const col3Raw = [...interviewItems, ...offerItems];
+  const col3Raw = [
+    // aggregated withdrawn node so it visually branches off from the interview source
+    ...(withdrawnTotal ? [{ label: 'Withdrawn interviews', count: withdrawnTotal, color: '#78716c', sourceId: 'interview' }] : []),
+    ...interviewItems,
+    ...offerItems,
+  ];
 
   // Layout col2
   const col2TotalH = SVG_H * 0.88;
   const col2OffY = (SVG_H - col2TotalH) / 2;
-  const totalCount = submitted.length;
   const col2TotalGap = GAP * Math.max(0, rawBuckets.length - 1);
   const col2Scale = col2TotalH > col2TotalGap ? (col2TotalH - col2TotalGap) / totalCount : 1;
   let col2Y = col2OffY;
@@ -584,9 +634,12 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
   const col1H = col2Laid[col2Laid.length - 1].y + col2Laid[col2Laid.length - 1].height - col2OffY;
 
   // Col3 heights derived from col2 source node
+  // compute heights for col3 items relative to their source node; interview-sourced items
+  // should use the interview node total that includes withdrawn so the branch lines match.
+  const interviewSourceTotal = interviewTotal + (withdrawnTotal ?? 0);
   const col3WithH = col3Raw.map((n) => {
     const src = col2Laid.find((c) => c.id === n.sourceId);
-    const srcTotal = n.sourceId === 'interview' ? interviewTotal : offerTotal;
+    const srcTotal = n.sourceId === 'interview' ? interviewSourceTotal : offerTotal;
     const height = Math.max(((n.count / Math.max(srcTotal, 1)) * (src?.height ?? 40)), 6);
     return { ...n, height };
   });
@@ -635,7 +688,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
           <h2 style={{ margin: '6px 0 0', fontSize: 20, letterSpacing: '-.03em' }}>Application Sankey</h2>
         </div>
         <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-          {interviewTotal} interview{interviewTotal !== 1 ? 's' : ''} · {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
+          {displayedInterviews} interview{displayedInterviews !== 1 ? 's' : ''} · {offerTotal} offer{offerTotal !== 1 ? 's' : ''}
         </div>
       </div>
       <svg width="100%" viewBox={`0 0 ${VW} ${SVG_H}`} style={{ display: 'block', overflow: 'visible' }}>
@@ -649,7 +702,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
         {/* Col 1 */}
         <rect x={c1x} y={col1Y} width={NW} height={col1H} fill="#1e3a8a" rx={3} />
         <text x={c1x - 8} y={col1Y + col1H / 2 - 8} textAnchor="end" dominantBaseline="middle" fontSize={12} fontWeight={700} fill="#1e293b">All Applications</text>
-        <text x={c1x - 8} y={col1Y + col1H / 2 + 8} textAnchor="end" dominantBaseline="middle" fontSize={12} fill="#64748b">{submitted.length}</text>
+        <text x={c1x - 8} y={col1Y + col1H / 2 + 8} textAnchor="end" dominantBaseline="middle" fontSize={12} fill="#64748b">{totalCount}</text>
 
         {/* Col 2 */}
         {col2Laid.map((n) => (
@@ -663,30 +716,37 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
         ))}
 
         {/* Col 3 */}
-        {interviewItems.length > 0 && (
-          <text x={c3x + NW + 7} y={Math.max(12, (col3Laid[0]?.y ?? 18) - 10)} dominantBaseline="middle" fontSize={11} fontWeight={800} fill="#1e293b">
-            Interviewed at:
-          </text>
-        )}
-        {offerItems.length > 0 && (
-          <text
-            x={c3x + NW + 7}
-            y={Math.max(12, (col3Laid[interviewItems.length]?.y ?? 18) - 10)}
-            dominantBaseline="middle"
-            fontSize={11}
-            fontWeight={800}
-            fill="#1e293b"
-          >
-            Offered by:
-          </text>
-        )}
+        {(() => {
+          const interviewOffset = withdrawnTotal ? 1 : 0;
+          return (
+            <>
+              {interviewItems.length > 0 && (
+                <text x={c3x + NW + 7} y={Math.max(12, (col3Laid[interviewOffset]?.y ?? 18) - 10)} dominantBaseline="middle" fontSize={11} fontWeight={800} fill="#1e293b">
+                  Interviewed at:
+                </text>
+              )}
+              {offerItems.length > 0 && (
+                <text
+                  x={c3x + NW + 7}
+                  y={Math.max(12, (col3Laid[interviewOffset + interviewItems.length]?.y ?? 18) - 10)}
+                  dominantBaseline="middle"
+                  fontSize={11}
+                  fontWeight={800}
+                  fill="#1e293b"
+                >
+                  Offered by:
+                </text>
+              )}
+            </>
+          );
+        })()}
         {col3Laid.map((n, i) => (
           <g key={`c3-${i}`}>
             <rect x={c3x} y={n.y} width={NW} height={n.height} fill={n.color} rx={3} />
             <>
               <text x={c3x + NW + 7} y={n.y + n.height / 2 - 6} dominantBaseline="middle" fontSize={11} fontWeight={700} fill={n.color}>{trunc(n.label)}</text>
               <text x={c3x + NW + 7} y={n.y + n.height / 2 + 8} dominantBaseline="middle" fontSize={10} fill="#64748b">
-                {n.count} {n.sourceId === 'offer' ? 'offer' : 'interview'}{n.count > 1 ? 's' : ''}
+                {n.count} {n.sourceId === 'offer' ? 'offer' : (n.label === 'Withdrawn interviews' ? 'withdrawn' : 'interview')}{n.count > 1 ? 's' : ''}
               </text>
             </>
           </g>
@@ -697,13 +757,15 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
 }
 
 function getOutcomeSummary(apps: Application[], trustedOutcomes: TrustedOutcomeData) {
-  const applications = apps.length;
+  const applications = trustedOutcomes.applications ?? apps.length;
   const rejected = apps.filter((app) => app.status === 'rejected').length;
   const interviews = trustedOutcomes.interviewTotal;
   const offers = trustedOutcomes.offerTotal;
-  const pending = Math.max(applications - rejected - interviews, 0);
+  const withdrawn = trustedOutcomes.withdrawnTotal ?? apps.filter((app) => app.status === 'withdrew').length;
+  const pending = Math.max(applications - rejected - interviews - withdrawn, 0);
   const noOffer = Math.max(interviews - offers, 0);
-  return { applications, pending, rejected, interviews, offers, noOffer };
+  const interviews_with_withdrawn = interviews + (withdrawn ?? 0);
+  return { applications, pending, rejected, interviews, offers, noOffer, withdrawn, interviews_with_withdrawn };
 }
 
 function OutcomeDashboardCard({
@@ -711,16 +773,19 @@ function OutcomeDashboardCard({
   trustedOutcomes,
   interviewCompanies,
   offerCompanies,
+  withdrawnCompanies,
   cycleName,
 }: {
   apps: Application[];
   trustedOutcomes: TrustedOutcomeData;
   interviewCompanies: string[];
   offerCompanies: string[];
+  withdrawnCompanies?: string[];
   cycleName: string;
 }) {
   const summary = getOutcomeSummary(apps, trustedOutcomes);
-  const responseProgress = pct(summary.interviews, Math.max(summary.applications, 1));
+  const displayedInterviews = summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0));
+  const responseProgress = pct(displayedInterviews, Math.max(summary.applications, 1));
   const offerYield = pct(summary.offers, Math.max(summary.interviews, 1));
   const nextFocus = summary.applications === 0
     ? { value: 'Ready to sync', detail: 'Create Gmail folders or import rows to start this cycle.' }
@@ -735,7 +800,8 @@ function OutcomeDashboardCard({
     { label: 'Applications', value: summary.applications, color: '#1e3a8a', soft: '#dbeafe' },
     { label: 'Pending', value: summary.pending, color: '#f59e0b', soft: '#fff7ed' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48', soft: '#ffe4e6' },
-    { label: 'Interviews', value: summary.interviews, color: '#2563eb', soft: '#dbeafe' },
+    { label: 'Withdrawn interviews', value: summary.withdrawn, color: '#78716c', soft: '#f5f5f4' },
+    { label: 'Interviews', value: displayedInterviews, color: '#2563eb', soft: '#dbeafe' },
     { label: 'Offers', value: summary.offers, color: '#16a34a', soft: '#dcfce7' },
   ];
 
@@ -748,7 +814,7 @@ function OutcomeDashboardCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', fontSize: 12, fontWeight: 800 }}>
           <span style={{ borderRadius: 999, padding: '6px 9px', background: '#eef6fb', color: '#2563eb', border: '1px solid #dbeafe' }}>{cycleName}</span>
-          <span style={{ color: '#64748b' }}>{summary.interviews} interviews - {summary.offers} offers</span>
+          <span style={{ color: '#64748b' }}>{displayedInterviews} interviews - {summary.offers} offers</span>
         </div>
       </div>
 
@@ -764,7 +830,7 @@ function OutcomeDashboardCard({
             </div>
           </div>
           {[
-            { label: 'Response progress', value: `${responseProgress}%`, detail: `${summary.interviews} of ${summary.applications} reached interview`, color: '#2563eb' },
+            { label: 'Response progress', value: `${responseProgress}%`, detail: `${displayedInterviews} of ${summary.applications} reached interview`, color: '#2563eb' },
             { label: 'Offer yield', value: `${offerYield}%`, detail: `${summary.offers} of ${summary.interviews} interviews converted`, color: '#16a34a' },
             { label: 'No offer', value: summary.noOffer, detail: 'Interview paths without an offer', color: '#64748b' },
           ].map((item) => (
@@ -778,14 +844,14 @@ function OutcomeDashboardCard({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(92px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(92px, 1fr))', gap: 10 }}>
         {cards.map((card) => (
           <div key={card.label} style={{ border: '1px solid #eef2f7', borderRadius: 16, padding: 12, background: card.soft }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12, minHeight: 36 }}>
               <span style={{ color: '#475569', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em' }}>{card.label}</span>
               <span style={{ width: 9, height: 9, borderRadius: 999, background: card.color }} />
             </div>
-            <div style={{ color: '#0f172a', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{card.value}</div>
+            <div style={{ color: '#0f172a', fontSize: 28, lineHeight: 1, fontWeight: 950, display: 'flex', justifyContent: 'center' }}>{card.value}</div>
           </div>
         ))}
       </div>
@@ -793,6 +859,7 @@ function OutcomeDashboardCard({
       <div style={{ display: 'grid', gap: 10, paddingTop: 2 }}>
         <LabelChips label="Interviewed at:" values={interviewCompanies} color="#2563eb" />
         <LabelChips label="Offered by:" values={offerCompanies} color="#16a34a" />
+        <LabelChips label="Withdrawn interviews:" values={withdrawnCompanies ?? []} color="#78716c" />
       </div>
     </div>
   );
@@ -853,14 +920,16 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
   const stageTop = 58;
   const stageH = 190;
   const gap = 12;
+  // Make the interviews node include withdrawn, and have withdrawn branch off from interviews
   const middleRaw = [
-    { key: 'interviews', label: 'Interviews', value: summary.interviews, color: '#2563eb' },
+    { key: 'interviews', label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
     { key: 'rejected', label: 'Rejected', value: summary.rejected, color: '#e11d48' },
     { key: 'pending', label: 'Pending', value: summary.pending, color: '#f59e0b' },
   ].filter((stage) => stage.value > 0);
   const rightRaw = [
     { key: 'offers', label: 'Offers', value: summary.offers, color: '#16a34a' },
     { key: 'no-offer', label: 'No Offer', value: summary.noOffer, color: '#94a3b8' },
+    { key: 'withdrawn', label: 'Withdrawn interviews', value: summary.withdrawn ?? 0, color: '#78716c' },
   ].filter((stage) => stage.value > 0);
   const flowTotal = Math.max(summary.applications, middleRaw.reduce((sum, stage) => sum + stage.value, 0), 1);
 
@@ -895,9 +964,10 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
     const sourceH = Math.max(interviewNode?.h ?? 24, 40);
     const areaH = Math.max(sourceH + gap * Math.max(0, items.length - 1), 64);
     const available = areaH - gap * Math.max(0, items.length - 1);
+    const interviewsDenom = summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0));
     const nodes = items.map((item) => ({
       ...item,
-      h: Math.max(14, summary.interviews > 0 ? (item.value / summary.interviews) * available : 0),
+      h: Math.max(14, interviewsDenom > 0 ? (item.value / interviewsDenom) * available : 0),
     }));
     const used = nodes.reduce((sum, node) => sum + node.h, 0) + gap * Math.max(0, nodes.length - 1);
     let y = (interviewNode ? interviewNode.y + interviewNode.h / 2 : stageTop + stageH / 2) - used / 2;
@@ -926,7 +996,8 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
   let interviewOffset = 0;
   const rightLinks = shiftedRightNodes.map((node) => {
     const sourceH = interviewNode?.h ?? 0;
-    const sh = Math.max(6, summary.interviews > 0 ? (node.value / summary.interviews) * sourceH : 0);
+    const interviewsDenom = summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0));
+    const sh = Math.max(6, interviewsDenom > 0 ? (node.value / interviewsDenom) * sourceH : 0);
     const link = { ...node, sy: (interviewNode?.y ?? 0) + interviewOffset, sh };
     interviewOffset += sh;
     return link;
@@ -936,7 +1007,8 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
     { label: 'Applications', value: summary.applications, color: '#1e3a8a' },
     { label: 'Pending', value: summary.pending, color: '#f59e0b' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48' },
-    { label: 'Interviews', value: summary.interviews, color: '#2563eb' },
+    { label: 'Withdrawn interviews', value: summary.withdrawn ?? 0, color: '#78716c' },
+    { label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
     { label: 'Offers', value: summary.offers, color: '#16a34a' },
     { label: 'No Offer', value: summary.noOffer, color: '#94a3b8' },
   ];
@@ -959,7 +1031,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', fontSize: 12, fontWeight: 800 }}>
           <span style={{ borderRadius: 999, padding: '6px 9px', background: '#eef6fb', color: '#2563eb', border: '1px solid #dbeafe' }}>{cycleName}</span>
-          <span style={{ color: '#64748b' }}>{summary.interviews} interviews - {summary.offers} offers</span>
+          <span style={{ color: '#64748b' }}>{summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0))} interviews - {summary.offers} offers</span>
         </div>
       </div>
 
@@ -1304,10 +1376,10 @@ export default function App() {
     const screened = outcomes.interviewTotal;
     const interviewed = outcomes.interviewTotal;
     return {
-      total: scopedApps.length,
+      total: outcomes.applications ?? scopedApps.length,
       saved: get('saved'),
       submitted,
-      applied: get('applied'),
+      applied: get('applied') + Math.max(0, (outcomes.applications ?? scopedApps.length) - scopedApps.length),
       screened,
       interviewed,
       offers: outcomes.offerTotal,
@@ -1355,6 +1427,7 @@ export default function App() {
   }));
   const interviewCompanies = trustedOutcomes.interviewCompanies.map((item) => item.count > 1 ? `${item.company} (${item.count})` : item.company);
   const offerCompanies = trustedOutcomes.offerCompanies.map((item) => item.count > 1 ? `${item.company} (${item.count})` : item.company);
+  const withdrawnCompanies = (trustedOutcomes.withdrawnCompanies ?? []).map((item) => item.count > 1 ? `${item.company} (${item.count})` : item.company);
   const currentManualOutcomes = visibleManualOutcomes.filter((outcome) => cycleFilter === 'all' || outcome.cycle === cycleFilter);
   const currentCycleName = cycleFilter === 'all' ? 'All cycles' : cycleFilter;
 
@@ -1590,10 +1663,9 @@ export default function App() {
             <div style={{ display: 'grid', gap: 8 }}>
               {['all', ...cycleOptions].map((cycle) => {
                 const active = cycleFilter === cycle;
-                const count = cycle === 'all'
-                  ? visibleBaseApps.length
-                  : apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === cycle).length;
                 if (cycle === 'all') {
+                  const allData = outcomeDataForView('all', visibleBaseApps, visibleManualOutcomes);
+                  const count = allData.applications ?? visibleBaseApps.length;
                   return (
                     <button
                       key={cycle}
@@ -1616,6 +1688,11 @@ export default function App() {
                     </button>
                   );
                 }
+
+                const cycleAppsList = apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === cycle);
+                const trusted = trustedOutcomeData(cycle, cycleAppsList, visibleManualOutcomes);
+                const count = trusted.applications ?? cycleAppsList.length;
+
                 return (
                   <div
                     key={cycle}
@@ -1675,7 +1752,7 @@ export default function App() {
             {(['all', ...STATUSES] as const).map((status) => {
               const active = filter === status;
               const count = status === 'all'
-                ? cycleApps.length
+                ? trustedOutcomes.applications ?? cycleApps.length
                 : status === 'interview'
                   ? trustedOutcomes.interviewTotal
                   : status === 'offer'
@@ -1780,6 +1857,7 @@ export default function App() {
                 trustedOutcomes={trustedOutcomes}
                 interviewCompanies={interviewCompanies}
                 offerCompanies={offerCompanies}
+                withdrawnCompanies={withdrawnCompanies}
                 cycleName={currentCycleName}
               />
               <BottomPipelineSankey apps={cycleApps} trustedOutcomes={trustedOutcomes} cycleName={currentCycleName} />
