@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Lane",
+  "name": "Job Tracker",
   "version": "1.0.0",
   "description": "One-click job application tracker that works on any career page",
   "permissions": ["activeTab", "storage", "scripting", "tabs", "identity", "identity.email"],
@@ -12,7 +12,7 @@
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "src/popup/index.html",
-    "default_title": "Lane"
+    "default_title": "Job Tracker"
   },
   "background": {
     "service_worker": "src/background/worker.ts",

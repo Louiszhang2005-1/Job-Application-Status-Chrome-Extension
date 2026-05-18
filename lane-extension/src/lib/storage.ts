@@ -394,6 +394,36 @@ export async function importWinter2026WorkbookSeed(): Promise<{ imported: number
   return { imported, updated, total: apps.length };
 }
 
+export async function padCycleApplied(cycle: string, targetTotal: number): Promise<{ added: number; total: number }> {
+  const apps = await getApplications();
+  const cycleCount = apps.filter((a) => (a.recruitment_cycle ?? 'Unassigned') === cycle).length;
+  const toAdd = Math.max(0, targetTotal - cycleCount);
+  if (toAdd === 0) return { added: 0, total: cycleCount };
+  const now = new Date().toISOString();
+  for (let i = 0; i < toAdd; i++) {
+    apps.push({
+      id: crypto.randomUUID(),
+      company: '—',
+      role: 'Application',
+      location: null,
+      job_url: '',
+      source: 'other',
+      detection_tier: 'manual',
+      status: 'applied',
+      resume_version: null,
+      notes: '',
+      applied_at: null,
+      captured_at: now,
+      updated_at: now,
+      next_followup_at: null,
+      recruitment_cycle: cycle,
+      status_source: 'manual',
+    });
+  }
+  await replaceApplications(apps);
+  return { added: toAdd, total: apps.filter((a) => (a.recruitment_cycle ?? 'Unassigned') === cycle).length };
+}
+
 // ---------------------------------------------------------------------------
 // CSV export / import
 // ---------------------------------------------------------------------------

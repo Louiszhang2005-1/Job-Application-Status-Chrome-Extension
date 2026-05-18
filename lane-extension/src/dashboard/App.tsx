@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import type { Application, ApplicationStatus, GmailAuthDiagnostics, GmailSyncResult, GmailSyncSettings } from '../lib/types';
 import type { CycleLayout, CycleSyncState, ManualOutcome, ManualOutcomeType } from '../lib/storage';
-import { addManualOutcome, clearCycleSync, exportApplicationsToCSV, getApplications, getCycleLayout, getCycleSyncState, getGmailSettings, getManualOutcomes, importFromCSV, removeManualOutcome, saveCycleLayout, saveGmailSettings, seedKnownApplications, updateApplication } from '../lib/storage';
+import { addManualOutcome, clearCycleSync, exportApplicationsToCSV, getApplications, getCycleLayout, getCycleSyncState, getGmailSettings, getManualOutcomes, importFromCSV, padCycleApplied, removeManualOutcome, saveCycleLayout, saveGmailSettings, seedKnownApplications, updateApplication } from '../lib/storage';
 import { connectGmail, disconnectGmail, getGmailAuthDiagnostics, syncGmail } from '../lib/gmail';
 import { SUMMER_2025_KNOWN, SUMMER_2026_KNOWN, WINTER_2026_KNOWN } from '../lib/winter2026Seed';
 
@@ -57,18 +57,19 @@ type TrustedOutcomeData = {
 const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
   'Summer 2025': {
     applications: 383,
-    interviewTotal: 7,
+    interviewTotal: 6,
     offerTotal: 1,
     interviewCompanies: toCompanyCounts([
       'Ville de Montréal',
       'ABB',
       'ArcelorMittal Produits Longs Canada',
       'Lelièvre, Lelièvre et Lemoignan Ltée',
-      'Collineo',
       'Vantage Canada Marketing',
       'Pratt & Whitney',
     ]),
     offerCompanies: toCompanyCounts(['Ville de Montréal']),
+    withdrawnTotal: 1,
+    withdrawnCompanies: toCompanyCounts(['Collineo']),
   },
   'Summer 2026': {
     interviewTotal: 4,
@@ -121,18 +122,19 @@ const TRUSTED_CYCLE_OUTCOMES: Record<string, TrustedOutcomeData> = {
 
 TRUSTED_CYCLE_OUTCOMES['Summer 2025'] = {
   applications: 383,
-  interviewTotal: 7,
+  interviewTotal: 6,
   offerTotal: 1,
   interviewCompanies: toCompanyCounts([
     'Ville de Montréal',
     'ABB',
     'ArcelorMittal Produits Longs Canada',
     'Lelièvre, Lelièvre et Lemoignan Ltée',
-    'Collineo',
     'Vantage Canada Marketing',
     'Pratt & Whitney',
   ]),
   offerCompanies: toCompanyCounts(['Ville de Montréal']),
+  withdrawnTotal: 1,
+  withdrawnCompanies: toCompanyCounts(['Collineo']),
 };
 
 function injectStyles() {
@@ -798,7 +800,7 @@ function OutcomeDashboardCard({
           : { value: `${summary.rejected} rejected`, detail: 'No pending applications left in this view.' };
   const cards = [
     { label: 'Applications', value: summary.applications, color: '#1e3a8a', soft: '#dbeafe' },
-    { label: 'Pending', value: summary.pending, color: '#f59e0b', soft: '#fff7ed' },
+    { label: 'Ghosted', value: summary.pending, color: '#f59e0b', soft: '#fff7ed' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48', soft: '#ffe4e6' },
     { label: 'Withdrawn interviews', value: summary.withdrawn, color: '#78716c', soft: '#f5f5f4' },
     { label: 'Interviews', value: displayedInterviews, color: '#2563eb', soft: '#dbeafe' },
@@ -830,8 +832,8 @@ function OutcomeDashboardCard({
             </div>
           </div>
           {[
-            { label: 'Response progress', value: `${responseProgress}%`, detail: `${displayedInterviews} of ${summary.applications} reached interview`, color: '#2563eb' },
-            { label: 'Offer yield', value: `${offerYield}%`, detail: `${summary.offers} of ${summary.interviews} interviews converted`, color: '#16a34a' },
+            { label: 'Interview rate', value: `${responseProgress}%`, detail: `${displayedInterviews} of ${summary.applications} reached interview`, color: '#2563eb' },
+            { label: 'Offer rate', value: `${offerYield}%`, detail: `${summary.offers} of ${summary.interviews} interviews converted`, color: '#16a34a' },
             { label: 'No offer', value: summary.noOffer, detail: 'Interview paths without an offer', color: '#64748b' },
           ].map((item) => (
             <div key={item.label} style={{ border: '1px solid #eef2f7', borderRadius: 18, padding: 14, background: '#fff', minWidth: 0 }}>
@@ -870,7 +872,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
   if (summary.applications < 1) {
     const emptyLegend = [
       { label: 'Applications', value: 0, color: '#1e3a8a' },
-      { label: 'Pending', value: 0, color: '#f59e0b' },
+      { label: 'Ghosted', value: 0, color: '#f59e0b' },
       { label: 'Rejected', value: 0, color: '#e11d48' },
       { label: 'Interviews', value: 0, color: '#2563eb' },
       { label: 'Offers', value: 0, color: '#16a34a' },
@@ -912,19 +914,19 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
   }
 
   const width = 980;
-  const height = 330;
+  const height = 460;
   const nodeW = 16;
   const sourceX = 96;
   const middleX = 455;
   const rightX = 770;
-  const stageTop = 58;
-  const stageH = 190;
-  const gap = 12;
+  const stageTop = 60;
+  const stageH = 320;
+  const gap = 18;
   // Make the interviews node include withdrawn, and have withdrawn branch off from interviews
   const middleRaw = [
     { key: 'interviews', label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
     { key: 'rejected', label: 'Rejected', value: summary.rejected, color: '#e11d48' },
-    { key: 'pending', label: 'Pending', value: summary.pending, color: '#f59e0b' },
+    { key: 'pending', label: 'Ghosted', value: summary.pending, color: '#f59e0b' },
   ].filter((stage) => stage.value > 0);
   const rightRaw = [
     { key: 'offers', label: 'Offers', value: summary.offers, color: '#16a34a' },
@@ -962,15 +964,16 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
 
   function layoutRightNodes<T extends { value: number }>(items: T[]) {
     const sourceH = Math.max(interviewNode?.h ?? 24, 40);
-    const areaH = Math.max(sourceH + gap * Math.max(0, items.length - 1), 64);
+    const areaH = Math.max(sourceH * 3.2, sourceH + gap * Math.max(0, items.length - 1) + 80, 120);
     const available = areaH - gap * Math.max(0, items.length - 1);
     const interviewsDenom = summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0));
     const nodes = items.map((item) => ({
       ...item,
-      h: Math.max(14, interviewsDenom > 0 ? (item.value / interviewsDenom) * available : 0),
+      h: Math.max(18, interviewsDenom > 0 ? (item.value / interviewsDenom) * available : 0),
     }));
     const used = nodes.reduce((sum, node) => sum + node.h, 0) + gap * Math.max(0, nodes.length - 1);
-    let y = (interviewNode ? interviewNode.y + interviewNode.h / 2 : stageTop + stageH / 2) - used / 2;
+    const centerY = (interviewNode ? interviewNode.y + interviewNode.h / 2 : stageTop + stageH / 2);
+    let y = Math.max(stageTop + 24, centerY - used / 2);
     return nodes.map((node) => {
       const laid = { ...node, y };
       y += node.h + gap;
@@ -1005,7 +1008,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
 
   const legend = [
     { label: 'Applications', value: summary.applications, color: '#1e3a8a' },
-    { label: 'Pending', value: summary.pending, color: '#f59e0b' },
+    { label: 'Ghosted', value: summary.pending, color: '#f59e0b' },
     { label: 'Rejected', value: summary.rejected, color: '#e11d48' },
     { label: 'Withdrawn interviews', value: summary.withdrawn ?? 0, color: '#78716c' },
     { label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
@@ -1035,7 +1038,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
         </div>
       </div>
 
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }}>
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', overflow: 'visible' }}>
         {middleLinks.map((link) => (
           <path key={`from-apps-${link.key}`} d={ribbon(source.x + source.w, middleX, link.sy, link.y, link.sh, link.h)} fill={link.color} opacity={0.28} />
         ))}
@@ -1114,7 +1117,7 @@ function GmailPanel({
           <div className="lane-kicker">Gmail Sync</div>
           <h2 style={{ margin: '6px 0 4px', fontSize: 20, letterSpacing: '-.03em' }}>Sync applications and rejections</h2>
           <p style={{ margin: 0, color: '#64748b', fontSize: 13, lineHeight: 1.5 }}>
-            Lane scans the selected cycle only. Interviews and offers stay manual.
+            Job Tracker scans the selected cycle only. Interviews and offers stay manual.
           </p>
         </div>
         <button className="lane-icon-btn" title="Gmail">M</button>
@@ -1309,6 +1312,7 @@ export default function App() {
   const [cycleFilter, setCycleFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dataToolsOpen, setDataToolsOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [settings, setSettings] = useState<GmailSyncSettings>({
     labelPrefix: 'Internships applications',
@@ -1585,6 +1589,12 @@ export default function App() {
     await load();
   }
 
+  async function handlePadSummer2025() {
+    const result = await padCycleApplied('Summer 2025', 383);
+    setImportNotice(`Summer 2025: added ${result.added} applied rows → total ${result.total}.`);
+    await load();
+  }
+
   async function handleAddManualOutcome() {
     const company = manualCompany.trim();
     const cycle = manualCycle.trim();
@@ -1640,9 +1650,9 @@ export default function App() {
       <div className="lane-frame">
         <aside className="lane-sidebar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 12, background: '#07091f', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 900 }}>L</div>
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: '#07091f', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 900 }}>JT</div>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: '-.04em' }}>Lane</div>
+              <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: '-.04em' }}>Job Tracker</div>
               <div style={{ color: '#64748b', fontSize: 12 }}>Job pipeline</div>
             </div>
           </div>
@@ -1792,14 +1802,49 @@ export default function App() {
                 {cycleFilter === 'all' ? 'Application command center' : cycleFilter}
               </h1>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input className="lane-input" style={{ width: 260 }} placeholder="Search company, role, note..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input className="lane-input" style={{ width: 240 }} placeholder="Search company, role, note..." value={search} onChange={(event) => setSearch(event.target.value)} />
               <button className="lane-btn secondary" onClick={handleExportCSV} title={`Export ${cycleFilter === 'all' ? 'all' : cycleFilter} applications as CSV`}>Export CSV</button>
               <button className="lane-btn secondary" onClick={handleImportCSVClick}>Import CSV</button>
               <input id="lane-csv-import-input" type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleImportCSVFile} />
-              <button className="lane-btn secondary" onClick={() => handleApplyCorrections('Summer 2025')}>Apply Summer 2025 corrections</button>
-              <button className="lane-btn secondary" onClick={() => handleApplyCorrections('Winter 2026')}>Apply Winter 2026 corrections</button>
-              <button className="lane-btn secondary" onClick={() => handleApplyCorrections('Summer 2026')}>Apply Summer 2026 corrections</button>
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="lane-btn secondary"
+                  onClick={() => setDataToolsOpen((v) => !v)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  Data tools
+                  <span style={{ fontSize: 10, opacity: 0.6 }}>{dataToolsOpen ? '▲' : '▼'}</span>
+                </button>
+                {dataToolsOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
+                    background: '#fff', border: '1px solid rgba(15,23,42,.1)', borderRadius: 14,
+                    boxShadow: '0 12px 30px rgba(15,23,42,.12)', padding: 8, minWidth: 230,
+                    display: 'flex', flexDirection: 'column', gap: 4,
+                  }}>
+                    {[
+                      { label: 'Apply Summer 2025 corrections', action: () => { handleApplyCorrections('Summer 2025'); setDataToolsOpen(false); } },
+                      { label: 'Pad Summer 2025 → 383', action: () => { handlePadSummer2025(); setDataToolsOpen(false); } },
+                      { label: 'Apply Winter 2026 corrections', action: () => { handleApplyCorrections('Winter 2026'); setDataToolsOpen(false); } },
+                      { label: 'Apply Summer 2026 corrections', action: () => { handleApplyCorrections('Summer 2026'); setDataToolsOpen(false); } },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={item.action}
+                        style={{
+                          border: 'none', background: 'none', textAlign: 'left', padding: '8px 12px',
+                          borderRadius: 9, fontSize: 13, fontWeight: 700, color: '#0f172a', cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button className="lane-btn" onClick={load}>Refresh</button>
             </div>
           </div>

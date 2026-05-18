@@ -8,3 +8,11 @@ lane-extension/.env.*
 
 lane-extension/dist/
 node_modules/
+
+# Personal data — never commit
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+lane-extension/ruvector.db
