@@ -507,7 +507,7 @@ function EditModal({
   );
 }
 
-type BucketNode = { id: string; label: string; color: string; count: number; y: number; height: number };
+type BucketNode = { id: string; label: string; color: string; count: number; displayCount?: number; y: number; height: number };
 type Col3Node = { label: string; count: number; color: string; sourceId: string; y: number; height: number };
 
 function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; trustedOutcomes: TrustedOutcomeData }) {
@@ -595,8 +595,8 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
 
   const rawBuckets: Array<{ id: string; label: string; color: string; count: number }> = [
     { id: 'rejected', label: 'Rejected', color: '#e11d48', count: submitted.filter((a) => a.status === 'rejected').length },
-    // combine withdrawn into the interview node so withdrawn visually branches off from interviews
-    { id: 'interview', label: 'Interview', color: '#2563eb', count: interviewTotal + (withdrawnTotal ?? 0) },
+    // Bar height includes withdrawn so withdrawn visually branches off; label shows interviews only
+    { id: 'interview', label: 'Interview', color: '#2563eb', count: interviewTotal + (withdrawnTotal ?? 0), displayCount: interviewTotal },
     { id: 'offer', label: 'Offer', color: '#16a34a', count: offerTotal },
     { id: 'applied', label: 'Applied', color: '#f59e0b', count: submitted.filter((a) => a.status === 'applied').length },
   ].filter((b) => b.count > 0);
@@ -706,7 +706,7 @@ function PipelineSankey({ apps, trustedOutcomes }: { apps: Application[]; truste
             <rect x={c2x} y={n.y} width={NW} height={n.height} fill={n.color} rx={3} />
             {n.height >= 18 && <>
               <text x={c2x + NW + 7} y={n.y + n.height / 2 - 7} dominantBaseline="middle" fontSize={12} fontWeight={700} fill={n.color}>{n.label}</text>
-              <text x={c2x + NW + 7} y={n.y + n.height / 2 + 9} dominantBaseline="middle" fontSize={11} fill="#64748b">{n.count}</text>
+              <text x={c2x + NW + 7} y={n.y + n.height / 2 + 9} dominantBaseline="middle" fontSize={11} fill="#64748b">{n.displayCount ?? n.count}</text>
             </>}
           </g>
         ))}
@@ -916,11 +916,11 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
   const stageTop = 60;
   const stageH = 320;
   const gap = 18;
-  // Make the interviews node include withdrawn, and have withdrawn branch off from interviews
+  // Bar height includes withdrawn so withdrawn visually branches off; label shows interviews only
   const middleRaw = [
-    { key: 'interviews', label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), color: '#2563eb' },
-    { key: 'rejected', label: 'Rejected', value: summary.rejected, color: '#e11d48' },
-    { key: 'pending', label: 'Ghosted', value: summary.pending, color: '#f59e0b' },
+    { key: 'interviews', label: 'Interviews', value: summary.interviews_with_withdrawn ?? (summary.interviews + (summary.withdrawn ?? 0)), displayValue: summary.interviews, color: '#2563eb' },
+    { key: 'rejected', label: 'Rejected', value: summary.rejected, displayValue: summary.rejected, color: '#e11d48' },
+    { key: 'pending', label: 'Ghosted', value: summary.pending, displayValue: summary.pending, color: '#f59e0b' },
   ].filter((stage) => stage.value > 0);
   const rightRaw = [
     { key: 'offers', label: 'Offers', value: summary.offers, color: '#16a34a' },
@@ -1046,7 +1046,7 @@ function BottomPipelineSankey({ apps, trustedOutcomes, cycleName }: { apps: Appl
         {middleNodes.map((node) => (
           <g key={`middle-${node.key}`}>
             <rect x={middleX} y={node.y} width={nodeW} height={node.h} fill={node.color} rx={4} />
-            {nodeLabel(middleX + nodeW + 12, node.y + node.h / 2, node.label, node.value, node.color)}
+            {nodeLabel(middleX + nodeW + 12, node.y + node.h / 2, node.label, (node as any).displayValue ?? node.value, node.color)}
           </g>
         ))}
 

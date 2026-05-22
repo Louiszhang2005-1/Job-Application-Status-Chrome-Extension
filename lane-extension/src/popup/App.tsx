@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Application, ApplicationStatus, DetectedJob } from '../lib/types';
-import { findByUrl, getApplications, saveApplication, updateApplication } from '../lib/storage';
+import type { GmailSyncSettings } from '../lib/types';
+import { findByUrl, getApplications, getGmailSettings, KNOWN_CYCLES, saveApplication, saveGmailSettings, updateApplication } from '../lib/storage';
 
 // --- Style constants ---
 const STATUS_COLORS: Record<ApplicationStatus, { bg: string; text: string; label: string }> = {
@@ -38,6 +39,9 @@ export default function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [tabUrl, setTabUrl] = useState('');
   const [toast, setToast] = useState('');
+  const [activeCycle, setActiveCycle] = useState('Summer 2026');
+  const [gmailSettings, setGmailSettings] = useState<GmailSyncSettings | null>(null);
+  const [cycleOptions, setCycleOptions] = useState<string[]>([...KNOWN_CYCLES]);
 
   // Form state for detected job
   const [company, setCompany] = useState('');
@@ -65,6 +69,12 @@ export default function App() {
 
       const apps = await getApplications();
       setTotalCount(apps.length);
+
+      const gmSettings = await getGmailSettings();
+      setGmailSettings(gmSettings);
+      setActiveCycle(gmSettings.activeCycle.trim() || 'Summer 2026');
+      const storedCycles = apps.map((a) => a.recruitment_cycle).filter((c): c is string => !!c);
+      setCycleOptions(Array.from(new Set([...KNOWN_CYCLES, ...storedCycles, gmSettings.activeCycle.trim()])));
 
       // Check if already saved
       const found = await findByUrl(url);
@@ -94,6 +104,15 @@ export default function App() {
     init();
   }, []);
 
+  async function handleCycleChange(newCycle: string) {
+    setActiveCycle(newCycle);
+    if (gmailSettings) {
+      const updated = { ...gmailSettings, activeCycle: newCycle };
+      setGmailSettings(updated);
+      await saveGmailSettings(updated);
+    }
+  }
+
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(''), 2000);
@@ -115,6 +134,8 @@ export default function App() {
       captured_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       next_followup_at: null,
+      recruitment_cycle: activeCycle,
+      status_source: 'detector' as const,
     };
     await saveApplication(app);
     const apps = await getApplications();
@@ -140,6 +161,8 @@ export default function App() {
       captured_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       next_followup_at: null,
+      recruitment_cycle: activeCycle,
+      status_source: 'manual' as const,
     };
     await saveApplication(app);
     const apps = await getApplications();
@@ -221,7 +244,7 @@ export default function App() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a', letterSpacing: '-0.02em' }}>Lane</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: '#9a9388' }}>{totalCount} tracked</span>
@@ -230,6 +253,17 @@ export default function App() {
             style={{ background: 'none', border: '1px solid #ebe6db', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: '#5a5246', cursor: 'pointer' }}
           >Dashboard →</button>
         </div>
+      </div>
+      {/* Active cycle selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9a9388', whiteSpace: 'nowrap' }}>Cycle</span>
+        <select
+          style={{ ...inputStyle, fontSize: 11, padding: '3px 6px', flex: 1 }}
+          value={activeCycle}
+          onChange={(e) => handleCycleChange(e.target.value)}
+        >
+          {cycleOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       {/* STATE: job detected */}

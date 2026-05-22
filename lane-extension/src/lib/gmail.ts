@@ -165,7 +165,10 @@ function findMatchingApplication(
   threadId?: string,
 ): Application | null {
   const pool = cycleConstraint
-    ? apps.filter((app) => (app.recruitment_cycle ?? 'Unassigned') === cycleConstraint)
+    ? apps.filter((app) => {
+        const appCycle = app.recruitment_cycle ?? 'Unassigned';
+        return appCycle === cycleConstraint || app.recruitment_cycle == null;
+      })
     : apps;
 
   // Strongest signal: same Gmail thread (rejection/interview reply to original application)

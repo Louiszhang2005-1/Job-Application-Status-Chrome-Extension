@@ -2,6 +2,8 @@ import type { Application, ApplicationStatus, GmailSyncSettings, JobSource } fro
 import { WINTER_2026_SEED } from './winter2026Seed';
 import type { SeedRecord } from './winter2026Seed';
 
+export const KNOWN_CYCLES = ['Summer 2025', 'Winter 2026', 'Summer 2026'] as const;
+
 const KEY = 'lane_applications';
 const GMAIL_SETTINGS_KEY = 'lane_gmail_settings';
 const CYCLE_SYNC_KEY = 'lane_cycle_sync_state';
