@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Application, ApplicationStatus, DetectedJob } from '../lib/types';
 import type { GmailSyncSettings } from '../lib/types';
-import { findByUrl, getApplications, getGmailSettings, KNOWN_CYCLES, saveApplication, saveGmailSettings, updateApplication } from '../lib/storage';
+import { findByUrl, getApplications, getCycleLayout, getGmailSettings, KNOWN_CYCLES, saveApplication, saveGmailSettings, updateApplication } from '../lib/storage';
 
 // --- Style constants ---
 const STATUS_COLORS: Record<ApplicationStatus, { bg: string; text: string; label: string }> = {
@@ -74,7 +74,8 @@ export default function App() {
       setGmailSettings(gmSettings);
       setActiveCycle(gmSettings.activeCycle.trim() || 'Summer 2026');
       const storedCycles = apps.map((a) => a.recruitment_cycle).filter((c): c is string => !!c);
-      setCycleOptions(Array.from(new Set([...KNOWN_CYCLES, ...storedCycles, gmSettings.activeCycle.trim()])));
+      const cycleLayout = await getCycleLayout();
+      setCycleOptions(Array.from(new Set([...KNOWN_CYCLES, ...cycleLayout.order, ...storedCycles, gmSettings.activeCycle.trim()])));
 
       // Check if already saved
       const found = await findByUrl(url);

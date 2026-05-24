@@ -1245,6 +1245,59 @@ function GmailPanel({
                 ))}
               </div>
             )}
+            {(() => {
+              const unmatched = result.hits.filter((h) => h.applicationId === null);
+              if (unmatched.length === 0) return null;
+              return (
+                <details style={{ background: '#fff', borderRadius: 12, border: '1px solid #fde68a', padding: '10px 12px' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#92400e', userSelect: 'none' }}>
+                    {unmatched.length} email{unmatched.length > 1 ? 's' : ''} not matched to any application — review for missed entries
+                  </summary>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+                    {unmatched.map((h) => (
+                      <div key={h.messageId} style={{ fontSize: 11, color: '#475569', borderTop: '1px solid #f1f5f9', paddingTop: 6 }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{h.subject || '(no subject)'}</div>
+                        <div>{h.from} · {h.date ? new Date(h.date).toLocaleDateString() : '—'}</div>
+                        {(h.company || h.role) && <div style={{ color: '#64748b' }}>{[h.company, h.role].filter(Boolean).join(' — ')}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })()}
+            {(() => {
+              const cycleApps = result.hits
+                .filter((h) => h.applicationId !== null && h.recruitmentCycle === settings.activeCycle)
+                .reduce<Record<string, Set<string>>>((acc, h) => {
+                  const key = (h.company ?? '').toLowerCase().replace(/\b(inc|ltd|corp|llc|co)\b\.?/g, '').trim();
+                  if (!key) return acc;
+                  if (!acc[key]) acc[key] = new Set();
+                  acc[key].add(h.applicationId!);
+                  return acc;
+                }, {});
+              const dupes = Object.entries(cycleApps).filter(([, ids]) => ids.size > 1);
+              if (dupes.length === 0) return null;
+              return (
+                <details style={{ background: '#fff', borderRadius: 12, border: '1px solid #fecaca', padding: '10px 12px' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#991b1b', userSelect: 'none' }}>
+                    {dupes.length} possible duplicate{dupes.length > 1 ? 's' : ''} — same company matched multiple times
+                  </summary>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+                    {dupes.map(([key, ids]) => {
+                      const rows = result.hits.filter((h) => h.applicationId !== null && ids.has(h.applicationId!));
+                      return (
+                        <div key={key} style={{ fontSize: 11, color: '#475569', borderTop: '1px solid #f1f5f9', paddingTop: 6 }}>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{rows[0]?.company ?? key} <span style={{ color: '#ef4444' }}>×{ids.size}</span></div>
+                          {rows.slice(0, 3).map((h) => (
+                            <div key={h.messageId}>{h.role ?? '—'} · {h.date ? new Date(h.date).toLocaleDateString() : '—'}</div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              );
+            })()}
           </div>
         ) : (
           <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>

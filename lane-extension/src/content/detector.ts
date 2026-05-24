@@ -1,5 +1,5 @@
 import { detectJob } from '../lib/extractors';
-import { findByUrl, saveApplication } from '../lib/storage';
+import { findByUrl, getGmailSettings, saveApplication } from '../lib/storage';
 import type { DetectedJob } from '../lib/types';
 
 let cachedJob: DetectedJob | null = detectJob();
@@ -95,6 +95,9 @@ async function autoTrackApplication(job: DetectedJob) {
       return;
     }
 
+    const gmailSettings = await getGmailSettings();
+    const activeCycle = gmailSettings.activeCycle?.trim() || null;
+
     await saveApplication({
       id: crypto.randomUUID(),
       company: job.company ?? 'Unknown',
@@ -110,6 +113,8 @@ async function autoTrackApplication(job: DetectedJob) {
       captured_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       next_followup_at: null,
+      recruitment_cycle: activeCycle,
+      status_source: 'detector',
     });
 
     chrome.runtime.sendMessage({ type: 'JOB_APPLIED' }).catch(() => {});
